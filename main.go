@@ -6,16 +6,20 @@ import (
 	"github.com/tailscale/walk"
 	. "github.com/tailscale/walk/declarative"
 	"log"
+	"strconv"
 	"time"
 )
 
 type MyMainWindow struct {
 	*walk.MainWindow
 	mainLayout *walk.Composite
-	//shortLayout     *walk.Composite
+	// shortLayout     *walk.Composite
 	longLayout      *walk.Composite
 	explainLayout   *walk.Composite
 	countDownLayout *walk.Composite
+	// longLayout
+	screenComboBox *walk.ComboBox
+	restComboBox   *walk.ComboBox
 	// 说明界面
 	explainTitle *walk.Label
 	explainText  *walk.TextLabel
@@ -29,6 +33,9 @@ type MyMainWindow struct {
 	count int
 	// 计时还是休息
 	state int
+	// 长时的选择
+	screenTime int
+	restTime   int
 }
 
 func newMyMainWindow() *MyMainWindow {
@@ -43,49 +50,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//var mainWindow *walk.MainWindow
-	//mainWindow, _ = walk.NewMainWindow()
-
-	//shortLayout := []Widget{
-	//	Label{
-	//		Text:      "每 20 分钟有 1 分钟的休息时间，记得向 6 米以外的地方至少看 20 秒哦。三次 20 分钟后将有 5 分钟的休息时间",
-	//		Alignment: AlignHCenterVCenter,
-	//	},
-	//	Label{
-	//		Text:      "还没开始计时",
-	//		Alignment: AlignHCenterVCenter,
-	//	},
-	//	PushButton{
-	//		Text: "开始计时",
-	//	},
-	//}
-	//
-	//mainLayout := []Widget{
-	//	Label{
-	//		Text:      "请选择模式",
-	//		Alignment: AlignHCenterVCenter,
-	//	},
-	//	PushButton{
-	//		Text: "短时间高频休息",
-	//		//OnClicked: func() {
-	//		//	mainWindow.Children().Clear()
-	//		//	mainWindow.Children().append(shortLayout)
-	//		//},
-	//	}, P
-	//	ushButton{
-	//		Text: "长时间低频休息",
-	//	},
-	//}
-
-	//var dynamicComposite *walk.Composite
-
 	mw := newMyMainWindow()
+
+	// 长时的时间
+	screenSelect := []string{"30", "35", "40", "45"}
+	restSelect := []string{"5", "10"}
 
 	err = MainWindow{
 		AssignTo: &mw.MainWindow,
 		Title:    "yasumiProject",               // 窗口标题
-		MinSize:  Size{Width: 400, Height: 500}, // 最小尺寸
-		Size:     Size{Width: 400, Height: 500}, // 尺寸
+		MinSize:  Size{Width: 300, Height: 500}, // 最小尺寸
+		Size:     Size{Width: 300, Height: 500}, // 尺寸
 		Layout:   VBox{},                        // 窗口布局
 		//MenuItems: []MenuItem{},
 		Children: []Widget{
@@ -130,11 +105,68 @@ func main() {
 				Visible:  false,
 				Layout:   VBox{},
 				Children: []Widget{
+					VSpacer{},
 					Label{
-						Text: "long",
+						Text:          "长时间低频休息",
+						TextAlignment: AlignCenter,
+						Font:          Font{PointSize: 20, Bold: true},
 					},
-					PushButton{
-						Text: "button",
+					VSpacer{},
+					Composite{
+						Layout: HBox{},
+						Children: []Widget{
+							Label{
+								Text:      "学习",
+								Alignment: AlignHCenterVCenter,
+							},
+							ComboBox{
+								AssignTo:     &mw.screenComboBox,
+								Model:        screenSelect,
+								CurrentIndex: 0,
+							},
+							Label{
+								Text:      "分钟",
+								Alignment: AlignHCenterVCenter,
+							},
+						},
+					},
+					Composite{
+						Layout: HBox{},
+						Children: []Widget{
+							Label{
+								Text:      "休息",
+								Alignment: AlignHCenterVCenter,
+							},
+							ComboBox{
+								AssignTo:     &mw.restComboBox,
+								Model:        restSelect,
+								CurrentIndex: 0,
+							},
+							Label{
+								Text:      "分钟",
+								Alignment: AlignHCenterVCenter,
+							},
+						},
+					},
+					VSpacer{},
+					Composite{
+						Layout: HBox{},
+						Children: []Widget{
+							PushButton{
+								Text:      "返回",
+								OnClicked: mw.mainLayoutToggle,
+							},
+							PushButton{
+								Text: "开始",
+								OnClicked: func() {
+									screenTime, _ := strconv.Atoi(screenSelect[mw.screenComboBox.CurrentIndex()])
+									restTime, _ := strconv.Atoi(restSelect[mw.restComboBox.CurrentIndex()])
+									mw.screenTime = screenTime
+									mw.restTime = restTime
+									mw.longScreenCountDownLayout()
+								},
+							},
+						},
 					},
 				},
 			},
@@ -208,7 +240,6 @@ func main() {
 						OnClicked: func() {
 						},
 					},
-					VSpacer{},
 					PushButton{
 						AssignTo:  &mw.countDownBackButton,
 						Text:      "主界面",
@@ -282,7 +313,7 @@ func main() {
 //		}.Create()
 //	}
 
-// 清楚所有控件显示
+// 清除所有控件显示
 func (mw *MyMainWindow) clearLayout() {
 	mw.mainLayout.SetVisible(false)
 	//mw.shortLayout.SetVisible(false)
@@ -321,6 +352,7 @@ func (mw *MyMainWindow) shortScreenCountDownLayout() {
 
 	// 计时界面按钮修改
 	mw.countDownButton.SetText("开始学习")
+	mw.countDownButton.Clicked().Detach(0)
 	mw.countDownButton.Clicked().Attach(func() {
 		go countDown(1200, mw)
 	})
@@ -353,6 +385,7 @@ func (mw *MyMainWindow) shortRestCountDownLayout() {
 	if err != nil {
 		return
 	}
+	mw.countDownButton.Clicked().Detach(0)
 	mw.countDownButton.Clicked().Attach(func() {
 		if mw.count < 4 {
 			go countDown(60, mw)
@@ -370,10 +403,64 @@ func (mw *MyMainWindow) shortRestCountDownLayout() {
 
 }
 
+// 长时选择界面
 func (mw *MyMainWindow) LongSelectLayout() {
-	//mw.clearLayout()
-	//mw.longLayout.SetVisible(true)
-	beeep.Notify("Error", "还没做捏", "./icon/app.ico")
+	mw.clearLayout()
+	mw.longLayout.SetVisible(true)
+	//beeep.Notify("Error", "还没做捏", "./icon/app.ico")
+}
+
+// 长时看屏幕倒计时
+func (mw *MyMainWindow) longScreenCountDownLayout() {
+	mw.clearLayout()
+
+	mw.countDownTitle.SetText("长时间低频休息")
+	mw.countDownText.SetText(fmt.Sprintf("倒计时 %d 分钟", mw.screenTime))
+
+	// 计时界面按钮修改
+	mw.countDownButton.SetText("开始学习")
+	mw.countDownButton.Clicked().Detach(0)
+	mw.countDownButton.Clicked().Attach(func() {
+		go countDown(mw.screenTime*60, mw)
+	})
+	mw.countDownButton.SetEnabled(true)
+
+	// 看屏幕状态
+	mw.state = 1
+
+	mw.countDownLayout.SetVisible(true)
+
+}
+
+// 长时休息倒计时
+func (mw *MyMainWindow) longRestCountDownLayout() {
+	mw.clearLayout()
+
+	err := mw.countDownTitle.SetText("长时间低频休息")
+	if err != nil {
+		return
+	}
+	err = mw.countDownText.SetText("时间到，休息啦")
+	if err != nil {
+		return
+	}
+
+	// 计时界面按钮修改
+	err = mw.countDownButton.SetText("开始休息")
+	if err != nil {
+		return
+	}
+	mw.countDownButton.Clicked().Detach(0)
+	mw.countDownButton.Clicked().Attach(func() {
+		go countDown(mw.restTime*60, mw)
+	})
+	mw.countDownButton.SetEnabled(true)
+
+	// 休息状态
+	mw.state = 2
+
+	mw.countDownLayout.SetVisible(true)
+
 }
 
 // 倒计时函数
@@ -406,7 +493,7 @@ func countDown(seconds int, mw *MyMainWindow) {
 		mw.shortRestCountDownLayout()
 	} else if mw.state == 2 {
 		beeep.Notify("学习时间", "休息结束，继续一起努力学习吧", "./icon/app.ico")
-		mw.shortScreenCountDownLayout()
+		mw.longScreenCountDownLayout()
 	}
 
 	// 返回按钮开启
